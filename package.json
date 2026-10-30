@@ -1,7 +1,7 @@
 {
-  "name": "wl-chat",
+  "name": "lux-chat",
   "version": "1.0.0",
-  "description": "WL Chat - Chat en tiempo real con WebSockets, Node.js y Supabase",
+  "description": "LUX Chat - Chat en tiempo real con WebSockets, Node.js y Supabase",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

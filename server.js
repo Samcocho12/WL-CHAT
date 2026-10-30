@@ -1,4 +1,4 @@
-// WL Chat - Servidor Node.js + WebSockets
+// LUX Chat - Servidor Node.js + WebSockets
 require('dotenv').config();
 const http = require('http');
 const os = require('os');
@@ -13,7 +13,7 @@ const COLORES = ['#7c5cff', '#22d3ee', '#f472b6', '#facc15', '#34d399', '#fb923c
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/health', (_req, res) => res.json({ ok: true, app: 'WL Chat', db: db.modo }));
+app.get('/health', (_req, res) => res.json({ ok: true, app: 'LUX Chat', db: db.modo }));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
@@ -133,7 +133,7 @@ function ipsLocales() {
 }
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('\n💬  WL Chat en marcha');
+  console.log('\n💬  LUX Chat en marcha');
   console.log(`🗄️   Base de datos: ${db.modo}`);
   console.log(`🖥️   Este equipo:   http://localhost:${PORT}`);
   for (const ip of ipsLocales()) console.log(`📶  Red WiFi:      http://${ip}:${PORT}`);

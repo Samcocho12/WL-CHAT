@@ -1,11 +1,11 @@
-# 💬 WL Chat
+# 💬 LUX Chat
 
 Chat en tiempo real con **WebSockets**, servidor en **Node.js** y base de datos en **Supabase** (PostgreSQL) que guarda el **registro de usuarios** y los **mensajes**.
 
 ## Estructura
 
 ```
-wl-chat/
+lux-chat/
 ├── server.js        # Servidor HTTP + WebSocket (ws) — registro, login, mensajes, usuarios en línea
 ├── db.js            # Conexión a Supabase (o data.json si no hay credenciales)
 ├── supabase.sql     # Tablas usuarios y mensajes
@@ -49,7 +49,7 @@ npm start
 La consola mostrará algo así:
 
 ```
-💬  WL Chat en marcha
+💬  LUX Chat en marcha
 🗄️   Base de datos: Supabase
 🖥️   Este equipo:   http://localhost:3000
 📶  Red WiFi:      http://192.168.1.15:3000
@@ -77,6 +77,6 @@ Sin Supabase configurado, el servidor funciona igual guardando todo en `data.jso
 5. Te dará una URL tipo `https://wl-chat.onrender.com` (el chat ya funciona completo ahí también).
 
 ### b) Interfaz en Vercel
-1. En `public/config.js` pon: `window.WL_SERVER = 'wss://wl-chat.onrender.com';`
+1. En `public/config.js` pon: `window.LUX_SERVER = 'wss://wl-chat.onrender.com';`
 2. En Vercel: **Add New → Project** → importa el repo (el `vercel.json` ya sirve la carpeta `public`).
 3. Deploy. Listo 🎉

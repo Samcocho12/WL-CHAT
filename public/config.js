@@ -1,5 +1,8 @@
-// Dirección del servidor WebSocket.
-// - Si abres el chat desde el mismo servidor Node (http://IP:3000) déjalo vacío: se detecta solo.
-// - Si el frontend está en Vercel, pon aquí la URL del servidor Node desplegado, ej:
-//   window.WL_SERVER = 'wss://wl-chat.onrender.com';
-window.WL_SERVER = '';
+// URL del servidor de WebSockets
+// Si la pagina esta en Vercel se conecta al servidor de Render,
+// si no, se conecta al mismo servidor desde donde se abrio (Render o la IP local)
+if (location.hostname.endsWith(".vercel.app")) {
+  window.LUX_SERVER = "wss://wl-chat.onrender.com";
+} else {
+  window.LUX_SERVER = "";
+}

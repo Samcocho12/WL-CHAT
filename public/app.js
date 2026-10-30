@@ -1,201 +1,184 @@
-// WL Chat - Cliente WebSocket
-const $ = (s) => document.querySelector(s);
+// ===== LUX Chat - Cliente =====
 
-// URL del servidor: config.js o el mismo host desde donde se sirve la página
-function urlServidor() {
-  if (window.WL_SERVER) return window.WL_SERVER;
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${location.host}`;
+// Si config.js tiene una URL la usamos, si no, nos conectamos al mismo servidor
+let url = window.LUX_SERVER;
+if (!url) {
+  if (location.protocol === "https:") {
+    url = "wss://" + location.host;
+  } else {
+    url = "ws://" + location.host;
+  }
 }
 
-let ws = null;
-let yo = null;
-let modo = 'login';
-let credenciales = null;      // para reconectar automáticamente
-let reintentos = 0;
-let ultimoAutor = null;
-let timerEscribiendo = null;
-const escribiendo = new Set();
+let socket;
+let miUsuario = null;
+let datosLogin = null; // para volver a entrar si se cae la conexion
+let tiempoEscribiendo;
 
-// ---------- Conexión ----------
 function conectar() {
-  ws = new WebSocket(urlServidor());
+  socket = new WebSocket(url);
 
-  ws.onopen = () => {
-    reintentos = 0;
-    estado(true);
-    if (credenciales) ws.send(JSON.stringify({ tipo: 'login', ...credenciales }));
-  };
-
-  ws.onmessage = (e) => {
-    const d = JSON.parse(e.data);
-    switch (d.tipo) {
-      case 'auth_ok': entrar(d); break;
-      case 'mensaje': pintarMensaje(d.mensaje); break;
-      case 'sistema': pintarSistema(d.texto); break;
-      case 'en_linea': pintarUsuarios(d.usuarios); break;
-      case 'escribiendo': marcarEscribiendo(d.username, d.activo); break;
-      case 'error': mostrarError(d.texto); break;
+  socket.onopen = function () {
+    document.getElementById("estado").textContent = "Conectado al servidor";
+    // si ya habia iniciado sesion, vuelve a entrar automaticamente
+    if (datosLogin) {
+      socket.send(JSON.stringify({ tipo: "login", username: datosLogin.username, password: datosLogin.password }));
     }
   };
 
-  ws.onclose = () => {
-    estado(false);
-    const espera = Math.min(1000 * 2 ** reintentos++, 10000);
-    setTimeout(conectar, espera);
+  socket.onclose = function () {
+    document.getElementById("estado").textContent = "Sin conexión, reintentando...";
+    setTimeout(conectar, 3000);
   };
-  ws.onerror = () => ws.close();
+
+  socket.onmessage = function (evento) {
+    const datos = JSON.parse(evento.data);
+
+    if (datos.tipo === "auth_ok") {
+      entrarAlChat(datos.usuario, datos.historial);
+    } else if (datos.tipo === "mensaje") {
+      mostrarMensaje(datos.mensaje);
+    } else if (datos.tipo === "sistema") {
+      mostrarAviso(datos.texto);
+    } else if (datos.tipo === "en_linea") {
+      mostrarUsuarios(datos.usuarios);
+    } else if (datos.tipo === "escribiendo") {
+      mostrarEscribiendo(datos.username, datos.activo);
+    } else if (datos.tipo === "error") {
+      if (miUsuario) {
+        mostrarAviso("Error: " + datos.texto);
+      } else {
+        document.getElementById("error").textContent = datos.texto;
+        datosLogin = null;
+      }
+    }
+  };
 }
 
-function estado(ok) {
-  for (const [p, t] of [['#punto-auth', '#txt-auth'], ['#punto-chat', '#txt-chat']]) {
-    $(p).className = 'punto ' + (ok ? 'ok' : 'mal');
-    $(t).textContent = ok ? 'Conectado' : 'Reconectando…';
+// ----- Login y registro -----
+function enviarLogin(tipo) {
+  const username = document.getElementById("usuario").value.trim();
+  const password = document.getElementById("clave").value;
+
+  if (username === "" || password === "") {
+    document.getElementById("error").textContent = "Completa todos los campos";
+    return;
   }
-  $('#btn-auth').disabled = !ok;
+
+  document.getElementById("error").textContent = "";
+  datosLogin = { username: username, password: password };
+  socket.send(JSON.stringify({ tipo: tipo, username: username, password: password }));
 }
 
-// ---------- Autenticación ----------
-document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.tab').forEach((x) => x.classList.remove('activo'));
-  b.classList.add('activo');
-  modo = b.dataset.modo;
-  $('#btn-auth').textContent = modo === 'login' ? 'Entrar' : 'Crear cuenta';
-  $('#auth-error').textContent = '';
-}));
+document.getElementById("btnEntrar").onclick = function () {
+  enviarLogin("login");
+};
 
-$('#form-auth').addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (!ws || ws.readyState !== WebSocket.OPEN) return mostrarError('Sin conexión con el servidor');
-  const username = $('#in-user').value.trim();
-  const password = $('#in-pass').value;
-  credenciales = { username, password };
-  $('#auth-error').textContent = '';
-  ws.send(JSON.stringify({ tipo: modo, username, password }));
+document.getElementById("btnRegistrar").onclick = function () {
+  enviarLogin("registro");
+};
+
+document.getElementById("clave").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") enviarLogin("login");
 });
 
-function entrar({ usuario, historial }) {
-  const yaDentro = !!yo;
-  yo = usuario;
-  $('#pantalla-auth').classList.add('oculto');
-  $('#pantalla-chat').classList.remove('oculto');
-  $('#mi-nombre').textContent = yo.username;
-  pintarAvatar($('#mi-avatar'), yo.username, yo.color);
-  $('#servidor-info').textContent = urlServidor().replace(/^wss?:\/\//, '');
-  if (!yaDentro || historial) {
-    $('#mensajes').innerHTML = '';
-    ultimoAutor = null;
-    historial.forEach(pintarMensaje);
+function entrarAlChat(usuario, historial) {
+  miUsuario = usuario;
+  document.getElementById("login").classList.add("oculto");
+  document.getElementById("chat").classList.remove("oculto");
+  document.getElementById("nombreUsuario").textContent = "Hola, " + usuario.username;
+
+  // mostrar los mensajes guardados en la base de datos
+  document.getElementById("mensajes").innerHTML = "";
+  for (let i = 0; i < historial.length; i++) {
+    mostrarMensaje(historial[i]);
   }
-  $('#in-msg').focus();
 }
 
-function mostrarError(texto) {
-  if (!yo) { $('#auth-error').textContent = texto; credenciales = null; }
-  else pintarSistema('⚠️ ' + texto);
+document.getElementById("btnSalir").onclick = function () {
+  miUsuario = null;
+  datosLogin = null;
+  socket.close();
+  document.getElementById("chat").classList.add("oculto");
+  document.getElementById("login").classList.remove("oculto");
+  document.getElementById("clave").value = "";
+};
+
+// ----- Mensajes -----
+function enviarMensaje() {
+  const input = document.getElementById("texto");
+  const texto = input.value.trim();
+  if (texto === "") return;
+
+  socket.send(JSON.stringify({ tipo: "mensaje", contenido: texto }));
+  socket.send(JSON.stringify({ tipo: "escribiendo", activo: false }));
+  input.value = "";
 }
 
-$('#btn-salir').addEventListener('click', () => {
-  credenciales = null; yo = null;
-  ws.close();
-  $('#pantalla-chat').classList.add('oculto');
-  $('#pantalla-auth').classList.remove('oculto');
-  $('#in-pass').value = '';
+document.getElementById("btnEnviar").onclick = enviarMensaje;
+
+document.getElementById("texto").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    enviarMensaje();
+  } else {
+    // avisar que estoy escribiendo
+    socket.send(JSON.stringify({ tipo: "escribiendo", activo: true }));
+    clearTimeout(tiempoEscribiendo);
+    tiempoEscribiendo = setTimeout(function () {
+      socket.send(JSON.stringify({ tipo: "escribiendo", activo: false }));
+    }, 2000);
+  }
 });
 
-// ---------- Mensajes ----------
-$('#form-msg').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const contenido = $('#in-msg').value.trim();
-  if (!contenido || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ tipo: 'mensaje', contenido }));
-  ws.send(JSON.stringify({ tipo: 'escribiendo', activo: false }));
-  $('#in-msg').value = '';
-});
-
-$('#in-msg').addEventListener('input', () => {
-  if (ws.readyState !== WebSocket.OPEN) return;
-  if (!timerEscribiendo) ws.send(JSON.stringify({ tipo: 'escribiendo', activo: true }));
-  clearTimeout(timerEscribiendo);
-  timerEscribiendo = setTimeout(() => {
-    ws.send(JSON.stringify({ tipo: 'escribiendo', activo: false }));
-    timerEscribiendo = null;
-  }, 1500);
-});
-
-function hora(iso) {
-  return new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+// evita que alguien meta codigo HTML en los mensajes
+function limpiar(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto;
+  return div.innerHTML;
 }
 
-function pintarAvatar(el, nombre, color) {
-  el.textContent = nombre[0].toUpperCase();
-  el.style.background = color || '#7c5cff';
+function mostrarMensaje(msg) {
+  const contenedor = document.getElementById("mensajes");
+  const hora = new Date(msg.creado_en).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+
+  let clase = "mensaje";
+  if (miUsuario && msg.usuario_id === miUsuario.id) {
+    clase = "mensaje mio";
+  }
+
+  contenedor.innerHTML +=
+    '<div class="' + clase + '">' +
+      '<span class="autor">' + limpiar(msg.username) + '</span>' +
+      '<span class="hora">' + hora + '</span>' +
+      '<div class="contenido-msg">' + limpiar(msg.contenido) + '</div>' +
+    '</div>';
+
+  contenedor.scrollTop = contenedor.scrollHeight;
+  mostrarEscribiendo(msg.username, false);
 }
 
-function pintarMensaje(m) {
-  const cont = $('#mensajes');
-  const abajo = cont.scrollHeight - cont.scrollTop - cont.clientHeight < 80;
-  const div = document.createElement('div');
-  div.className = 'msg' + (yo && m.usuario_id === yo.id ? ' mio' : '') + (ultimoAutor === m.usuario_id ? ' seguido' : '');
-  const av = document.createElement('div');
-  av.className = 'avatar';
-  pintarAvatar(av, m.username, m.color);
-
-  const b = document.createElement('div');
-  b.className = 'burbuja';
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  const n = document.createElement('strong');
-  n.textContent = m.username;
-  n.style.color = yo && m.usuario_id === yo.id ? '#fff' : m.color;
-  const t = document.createElement('time');
-  t.textContent = hora(m.creado_en);
-  meta.append(n, t);
-  const p = document.createElement('p');
-  p.textContent = m.contenido;      // textContent evita inyección de HTML
-  b.append(meta, p);
-
-  div.append(av, b);
-  cont.append(div);
-  ultimoAutor = m.usuario_id;
-  marcarEscribiendo(m.username, false);
-  if (abajo || (yo && m.usuario_id === yo.id)) cont.scrollTop = cont.scrollHeight;
+function mostrarAviso(texto) {
+  const contenedor = document.getElementById("mensajes");
+  contenedor.innerHTML += '<p class="aviso">' + limpiar(texto) + '</p>';
+  contenedor.scrollTop = contenedor.scrollHeight;
 }
 
-function pintarSistema(texto) {
-  const d = document.createElement('div');
-  d.className = 'sistema';
-  d.textContent = texto;
-  $('#mensajes').append(d);
-  ultimoAutor = null;
-  $('#mensajes').scrollTop = $('#mensajes').scrollHeight;
+function mostrarUsuarios(lista) {
+  document.getElementById("cantidad").textContent = lista.length;
+  let html = "";
+  for (let i = 0; i < lista.length; i++) {
+    html += "<li>" + limpiar(lista[i].username) + "</li>";
+  }
+  document.getElementById("listaUsuarios").innerHTML = html;
 }
 
-function pintarUsuarios(lista) {
-  $('#contador').textContent = lista.length;
-  const ul = $('#lista-usuarios');
-  ul.innerHTML = '';
-  lista.forEach((u) => {
-    const li = document.createElement('li');
-    const av = document.createElement('div');
-    av.className = 'avatar';
-    pintarAvatar(av, u.username, u.color);
-    const s = document.createElement('span');
-    s.textContent = u.username + (yo && u.username === yo.username ? ' (tú)' : '');
-    li.append(av, s);
-    ul.append(li);
-  });
+function mostrarEscribiendo(nombre, activo) {
+  const p = document.getElementById("escribiendo");
+  if (activo) {
+    p.textContent = nombre + " está escribiendo...";
+  } else if (p.textContent.startsWith(nombre + " ")) {
+    p.textContent = "";
+  }
 }
-
-function marcarEscribiendo(nombre, activo) {
-  activo ? escribiendo.add(nombre) : escribiendo.delete(nombre);
-  const l = [...escribiendo];
-  $('#escribiendo').textContent =
-    l.length === 0 ? '' : l.length === 1 ? `${l[0]} está escribiendo…` : `${l.join(', ')} están escribiendo…`;
-}
-
-// Menú lateral en móvil
-$('#btn-menu').addEventListener('click', () => $('#lateral').classList.toggle('abierto'));
-$('#mensajes').addEventListener('click', () => $('#lateral').classList.remove('abierto'));
 
 conectar();

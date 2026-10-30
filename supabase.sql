@@ -1,4 +1,4 @@
--- WL Chat - Esquema para Supabase
+-- LUX Chat - Esquema para Supabase
 -- Pégalo en Supabase -> SQL Editor -> New query -> Run
 
 create table if not exists public.usuarios (
