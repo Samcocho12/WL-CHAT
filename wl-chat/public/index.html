@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WL Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=DM+Sans:wght@400;500;700&family=DM+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ===== Pantalla de acceso ===== -->
+  <section id="pantalla-auth" class="auth">
+    <div class="auth-card">
+      <div class="logo"><span>WL</span> Chat</div>
+      <p class="sub">Chat en tiempo real con WebSockets</p>
+
+      <div class="tabs">
+        <button class="tab activo" data-modo="login">Iniciar sesión</button>
+        <button class="tab" data-modo="registro">Registrarse</button>
+      </div>
+
+      <form id="form-auth" autocomplete="off">
+        <label>Usuario
+          <input id="in-user" required minlength="3" maxlength="20" placeholder="ej: jorge_dev" />
+        </label>
+        <label>Contraseña
+          <input id="in-pass" type="password" required minlength="4" placeholder="••••" />
+        </label>
+        <button id="btn-auth" type="submit">Entrar</button>
+        <p id="auth-error" class="error"></p>
+      </form>
+
+      <div class="estado-conexion"><span id="punto-auth" class="punto"></span><span id="txt-auth">Conectando…</span></div>
+    </div>
+  </section>
+
+  <!-- ===== Chat ===== -->
+  <section id="pantalla-chat" class="chat oculto">
+    <aside class="lateral" id="lateral">
+      <div class="logo pequeno"><span>WL</span> Chat</div>
+      <div class="yo">
+        <div class="avatar" id="mi-avatar"></div>
+        <div>
+          <strong id="mi-nombre"></strong>
+          <small><span class="punto ok"></span> En línea</small>
+        </div>
+      </div>
+      <h3>En línea <span id="contador">0</span></h3>
+      <ul id="lista-usuarios"></ul>
+      <button id="btn-salir" class="salir">Cerrar sesión</button>
+    </aside>
+
+    <main class="principal">
+      <header class="cabecera">
+        <button id="btn-menu" class="menu" aria-label="Usuarios">☰</button>
+        <div>
+          <h2># sala-general</h2>
+          <small id="servidor-info"></small>
+        </div>
+        <div class="estado-conexion"><span id="punto-chat" class="punto ok"></span><span id="txt-chat">Conectado</span></div>
+      </header>
+
+      <div id="mensajes" class="mensajes"></div>
+      <div id="escribiendo" class="escribiendo"></div>
+
+      <form id="form-msg" class="compositor">
+        <input id="in-msg" maxlength="1000" placeholder="Escribe un mensaje…" autocomplete="off" />
+        <button type="submit" aria-label="Enviar">➤</button>
+      </form>
+    </main>
+  </section>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
